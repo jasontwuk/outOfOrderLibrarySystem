@@ -1,0 +1,154 @@
+<script src="simpletest.js"></script>
+<script>
+
+(function(){
+    // build a storage for libraries
+    var libraryStorage = {};
+    var contentOfDependency = [];
+    var pendingDependency = [];
+    var pendingLibraryName;
+    var pendingCallback;
+
+    function librarySystem(libraryName, dependencyArray, callback){
+        // when has dependencyArray and callback
+        if(arguments.length > 1){
+            // when has dependency
+            if(dependencyArray.length > 0){
+                
+                for(var i = 0; i < dependencyArray.length; i++){
+                    // when the dependency already in libraryStorage
+                    if(dependencyArray[i] in libraryStorage){
+                        // save the content of dependency in contentOfDependency array
+                        contentOfDependency.push(librarySystem(dependencyArray[i]));
+                    // when the dependency not in libraryStorage
+                    } else {
+                        pendingDependency.push(dependencyArray[i]);
+                        pendingLibraryName = libraryName;
+                        pendingCallback = callback;
+                    }
+                }
+
+                // when contentOfDependency array is not empty
+                if(contentOfDependency.length > 0){
+                    // pass content of dependency as callback's argument
+                    // save the library's name and content in the libraryStorage
+                    libraryStorage[libraryName] = callback.apply(this, contentOfDependency);
+                    // clear contentOfDependency
+                    contentOfDependency.length = 0;
+                }
+            // when no dependency
+            } else {
+                // when libraryName in the pendingDependency array
+                if(pendingDependency.includes(libraryName)){
+                    // save the content of dependency in contentOfDependency array
+                    contentOfDependency.push(callback());
+                    // delete the libraryName from pendingDependency
+                    pendingDependency.splice(pendingDependency.indexOf(libraryName), 1);
+                }
+                // when no items in pendingDependency, and pendingLibraryName and pendingCallback is exist
+                if(pendingDependency.length === 0 && pendingLibraryName && pendingCallback){
+                    // pass content of dependency as callback's argument
+                    // save the library's name and content in the libraryStorage
+                    libraryStorage[pendingLibraryName] = pendingCallback.apply(this, contentOfDependency);
+                    // clear contentOfDependency
+                    contentOfDependency.length = 0;
+                }
+                // save the library's name and content in the libraryStorage
+                libraryStorage[libraryName] = callback();
+            }
+        // when no dependencyArray and callback
+        } else {
+            // return library's content
+            return libraryStorage[libraryName];
+        }
+    }
+
+    // make librarySystem accessable globally
+    window.librarySystem = librarySystem;
+})();
+
+tests({
+    "(1) It should work when we're loading the libraries (one dependency) in the right order.": function() {
+        librarySystem('dependency', [], function() {
+            return 'loaded dependency';
+        });
+
+        librarySystem('app', ['dependency'], function(dependency) {
+            return 'app with ' + dependency;
+        });
+
+        var librarySystemResult = librarySystem('app');;
+        eq(librarySystemResult, 'app with loaded dependency')
+    },
+    "(2) It should work when we're loading the libraries (more than one dependency) in the right order.": function() {
+        librarySystem('name', [], function() {
+            return 'Gordon';
+        });
+
+        librarySystem('company', [], function() {
+            return 'Watch and Code';
+        });
+
+        librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+            return name + ' works at ' + company;
+        });
+
+        var librarySystemResult = librarySystem('workBlurb');
+        eq(librarySystemResult, 'Gordon works at Watch and Code');
+    },
+    "(3) It should work when we're loading the libraries (one dependency) out of order.": function() {
+        librarySystem('app', ['dependency'], function(dependency) {
+            return 'app with ' + dependency;
+        });
+
+        librarySystem('dependency', [], function() {
+            return 'loaded dependency';
+        });
+
+        var librarySystemResult = librarySystem('app');;
+        eq(librarySystemResult, 'app with loaded dependency');
+    },
+    "(4) It should work when we're loading the libraries (more than one dependency) out of order.": function() {
+        librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+            return name + ' works at ' + company;
+        });
+
+        librarySystem('name', [], function() {
+            return 'Gordon';
+        });
+
+        librarySystem('company', [], function() {
+            return 'Watch and Code';
+        });
+
+        var librarySystemResult = librarySystem('workBlurb');
+        eq(librarySystemResult, 'Gordon works at Watch and Code');
+    },
+    "(5) It should only run once even the callback appears more than one time in the app.": function() {
+        var numberOfTimesCallbackHasRun = 0;
+        librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+            numberOfTimesCallbackHasRun++;
+            return name + ' works at ' + company;
+        });
+
+        librarySystem('name', [], function() {
+            return 'Gordon';
+        });
+
+        librarySystem('company', [], function() {
+            return 'Watch and Code';
+        });
+
+        librarySystem('workBlurb');
+        librarySystem('workBlurb');
+        librarySystem('workBlurb');
+        librarySystem('workBlurb');
+        librarySystem('workBlurb');
+
+        var librarySystemResult = librarySystem('workBlurb');
+        eq(librarySystemResult, 'Gordon works at Watch and Code');
+        eq(numberOfTimesCallbackHasRun, 1);
+    }
+});
+
+</script>
