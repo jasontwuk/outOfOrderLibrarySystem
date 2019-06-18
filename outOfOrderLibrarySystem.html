@@ -78,7 +78,7 @@ tests({
         });
 
         var librarySystemResult = librarySystem('app');;
-        eq(librarySystemResult, 'app with loaded dependency')
+        eq(librarySystemResult, 'app with loaded dependency');
     },
     "(2) It should work when we're loading the libraries (more than one dependency) in the right order.": function() {
         librarySystem('name', [], function() {
